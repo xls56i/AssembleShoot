@@ -1,0 +1,855 @@
+Microsoft (R) Macro Assembler Version 6.11		    11/22/16 17:16:30
+tempfile.asm						     Page 1 - 1
+
+
+				CLEARSCR MACRO
+					PUSH AX
+					PUSH BX
+					PUSH CX
+					PUSH DX
+					MOV AX,0600H
+					MOV BH,07
+					MOV CX,0
+					MOV DX,184FH
+					INT 10H
+					POP DX
+					POP CX
+					POP BX
+					POP AX
+					ENDM
+				DISPLAY MACRO STRING
+					PUSH AX
+					PUSH DX
+					MOV AH,09
+					MOV DX,OFFSET STRING
+					INT 21H
+					POP DX
+					POP AX
+					ENDM
+
+				CURSOR MACRO ROW,COLUMN
+					PUSH AX
+					PUSH BX
+					PUSH CX
+					PUSH DX
+					MOV AH,02
+					MOV BH,00
+					MOV DH,ROW
+					MOV DL,COLUMN
+					INT 10H
+					POP DX
+					POP CX
+					POP BX
+					POP AX
+					ENDM
+					
+				REMOVE MACRO NUM,ROW,COL,ADDR
+					LOCAL LOOP1
+					PUSH AX
+					PUSH BX
+					PUSH CX
+					PUSH DX
+					PUSH DI
+					MOV CX,NUM
+				    MOV DI,ADDR
+				    MOV DH,ROW
+				    MOV DL,COL
+				LOOP1:
+					ADD DH,[DI+2]
+				    ADD DL,[DI+3]
+				    MOV AH,02
+				    INT 10H
+				    MOV AL,[DI]
+				    MOV BL,0
+				    PUSH CX
+				    MOV AH,09
+				    MOV CX,01
+				    INT 10H
+				    POP CX
+				    ADD DI,4
+				    LOOP LOOP1
+				    POP DI
+				    POP DX
+				    POP CX
+				    POP BX
+				    POP AX
+					ENDM
+					
+ 0000				DATAS SEGMENT
+				    ;此处输入数据段代�?
+				    ;Menu
+ 0000 53 68 6F 6F 74 20		    message1 db 'Shoot the SuperMan$'
+       74 68 65 20 53 75
+       70 65 72 4D 61 6E
+       24
+ 0013 55 73 65 20 6C 65		    message2 db 'Use left and right to move$'
+       66 74 20 61 6E 64
+       20 72 69 67 68 74
+       20 74 6F 20 6D 6F
+       76 65 24
+ 002E 53 68 6F 6F 74 3A		    message3 db 'Shoot:Space$'
+       53 70 61 63 65 24
+ 003A 53 74 61 72 74 3A		    message4 db 'Start: Enter$'
+       20 45 6E 74 65 72
+       24
+ 0047 45 78 69 74 3A 20		    message5 db 'Exit: Esc$'
+       45 73 63 24
+ 0051 06			    people 	db 6
+ 0052  01 0E 00 00		           	db 01,14,0,0 
+ 0056  0A 0C 01 00		           	db 10,12,1,0
+ 005A  1B 02 00 FF		           	db 27,2,0,-1
+ 005E  1A 02 00 02		          	db 26,2,0,2
+ 0062  5C 02 01 00		           	db 92,2,1,0
+ 0066  2F 02 00 FE		           	db 47,2,0,-2
+				                 
+ 006A 03			    superman db 3
+ 006B  10 0C 00 00		         	db 16,12,0,0
+ 006F  2D 0C 00 01		         	db 45,12,0,1
+ 0073  02 0C 00 01		         	db 02,12,0,1
+				                
+				     
+ 0077 0000			     num1 dw 00
+ 0079 00			     row1 db 00
+ 007A 00			     col1 db 00 
+ 007B 0000			     add1 dw 00
+				     
+ 007D 0000			     num2 dw 00
+ 007F 00			     row2 db 00
+ 0080 00			     col2 db 00
+ 0081 0000			     add2 dw 00
+				     
+				     
+ 0083 53 63 6F 72 65 3A		     score db 'Score:$'
+       24
+ 008A  0002 [			     score1 db 2 dup('0'),'$';分数的ASCII码，用于显示
+        30
+       ] 24
+ 008D 00			     score2 db 0;分数的二进制码，用于运算
+				     
+
+ 008E				DATAS ENDS
+
+ 0000				STACKS SEGMENT
+				    ;此处输入堆栈段代�?
+ 0000				STACKS ENDS
+
+ 0000				CODES SEGMENT
+				    ASSUME CS:CODES,DS:DATAS,SS:STACKS
+				    
+ 0000				START:
+ 0000  B8 ---- R		    MOV AX,DATAS
+ 0003  8E D8			    MOV DS,AX
+				    ;此处输入代码段代�?
+ 0005  B4 00				mov ah,00 ;选择80*25文本模式
+ 0007  B0 03			    mov al,03
+ 0009  CD 10			    int 10h
+ 000B  E8 00F3			    call howtoplay
+ 000E  E8 01C5			    call init
+ 0011  E8 01D9			    call showscore  
+ 0014				again:
+ 0014  E8 0334			    call delay
+ 0017  E8 0280			    call move
+				  	
+ 001A  B4 01			    mov ah,01
+ 001C  CD 16			    int 16h
+ 001E  74 F4			    jz again
+ 0020  B4 00			    mov ah,00
+ 0022  CD 16			    int 16h
+ 0024  80 FC 4B			    cmp ah,4bh
+ 0027  74 17			    je left
+ 0029  80 FC 4D			    cmp ah,4dh
+ 002C  74 66			    je right
+ 002E  80 FC 39			    cmp ah,39h
+ 0031  75 03 E9 00B6		    je shoot
+ 0036  80 FC 01			    cmp ah,01h
+ 0039  75 03 E9 00BF		    je exit
+ 003E  EB D4			    jmp again
+				    
+ 0040				left:
+ 0040  8A 16 007A R		    mov dl,col1;边界检�?
+ 0044  80 FA 01			    cmp dl,01
+ 0047  76 CB			    jna again
+				    
+				    REMOVE num1,row1,col1,add1
+ 0049  50		     1		PUSH AX
+ 004A  53		     1		PUSH BX
+ 004B  51		     1		PUSH CX
+ 004C  52		     1		PUSH DX
+ 004D  57		     1		PUSH DI
+ 004E  8B 0E 0077 R	     1		MOV CX,num1
+ 0052  8B 3E 007B R	     1	    MOV DI,add1
+ 0056  8A 36 0079 R	     1	    MOV DH,row1
+ 005A  8A 16 007A R	     1	    MOV DL,col1
+ 005E			     1	??0000:
+ 005E  02 75 02		     1		ADD DH,[DI+2]
+ 0061  02 55 03		     1	    ADD DL,[DI+3]
+ 0064  B4 02		     1	    MOV AH,02
+ 0066  CD 10		     1	    INT 10H
+ 0068  8A 05		     1	    MOV AL,[DI]
+ 006A  B3 00		     1	    MOV BL,0
+ 006C  51		     1	    PUSH CX
+ 006D  B4 09		     1	    MOV AH,09
+ 006F  B9 0001		     1	    MOV CX,01
+ 0072  CD 10		     1	    INT 10H
+ 0074  59		     1	    POP CX
+ 0075  83 C7 04		     1	    ADD DI,4
+ 0078  E2 E4		     1	    LOOP ??0000
+ 007A  5F		     1	    POP DI
+ 007B  5A		     1	    POP DX
+ 007C  59		     1	    POP CX
+ 007D  5B		     1	    POP BX
+ 007E  58		     1	    POP AX
+ 007F  8A 36 0079 R		    mov dh,row1
+ 0083  8A 16 007A R		    mov dl,col1
+ 0087  80 EA 01			    sub dl,1
+ 008A  BF 0051 R		    mov di,offset people
+ 008D  B7 00			    mov bh,00
+ 008F  E8 018E			    call display1
+ 0092  EB 80			    jmp again
+ 0094				right:
+ 0094  8A 16 007A R		    mov dl,col1
+ 0098  80 FA 4E			    cmp dl,78
+ 009B  72 03 E9 FF74		    jnb again
+				    REMOVE num1,row1,col1,add1
+ 00A0  50		     1		PUSH AX
+ 00A1  53		     1		PUSH BX
+ 00A2  51		     1		PUSH CX
+ 00A3  52		     1		PUSH DX
+ 00A4  57		     1		PUSH DI
+ 00A5  8B 0E 0077 R	     1		MOV CX,num1
+ 00A9  8B 3E 007B R	     1	    MOV DI,add1
+ 00AD  8A 36 0079 R	     1	    MOV DH,row1
+ 00B1  8A 16 007A R	     1	    MOV DL,col1
+ 00B5			     1	??0001:
+ 00B5  02 75 02		     1		ADD DH,[DI+2]
+ 00B8  02 55 03		     1	    ADD DL,[DI+3]
+ 00BB  B4 02		     1	    MOV AH,02
+ 00BD  CD 10		     1	    INT 10H
+ 00BF  8A 05		     1	    MOV AL,[DI]
+ 00C1  B3 00		     1	    MOV BL,0
+ 00C3  51		     1	    PUSH CX
+ 00C4  B4 09		     1	    MOV AH,09
+ 00C6  B9 0001		     1	    MOV CX,01
+ 00C9  CD 10		     1	    INT 10H
+ 00CB  59		     1	    POP CX
+ 00CC  83 C7 04		     1	    ADD DI,4
+ 00CF  E2 E4		     1	    LOOP ??0001
+ 00D1  5F		     1	    POP DI
+ 00D2  5A		     1	    POP DX
+ 00D3  59		     1	    POP CX
+ 00D4  5B		     1	    POP BX
+ 00D5  58		     1	    POP AX
+ 00D6  8A 36 0079 R		    mov dh,row1
+ 00DA  8A 16 007A R		    mov dl,col1
+ 00DE  80 C2 01			    add dl,1
+ 00E1  BF 0051 R		    mov di,offset people
+ 00E4  B7 00			    mov bh,00
+ 00E6  E8 0137			    call display1
+ 00E9  E9 FF28			    jmp again    
+ 00EC				shoot:
+ 00EC  8A 36 0079 R		    mov dh,row1    
+ 00F0  8A 16 007A R		    mov dl,col1
+ 00F4  E8 0222			    call kill
+ 00F7  E8 0265			    call judge
+ 00FA  E9 FF17			    jmp again
+ 00FD				exit:
+ 00FD  B4 4C			    MOV AH,4CH
+ 00FF  CD 21			    INT 21H
+				    
+				;Menu        
+ 0101				howtoplay proc
+					CLEARSCR
+ 0101  50		     1		PUSH AX
+ 0102  53		     1		PUSH BX
+ 0103  51		     1		PUSH CX
+ 0104  52		     1		PUSH DX
+ 0105  B8 0600		     1		MOV AX,0600H
+ 0108  B7 07		     1		MOV BH,07
+ 010A  B9 0000		     1		MOV CX,0
+ 010D  BA 184F		     1		MOV DX,184FH
+ 0110  CD 10		     1		INT 10H
+ 0112  5A		     1		POP DX
+ 0113  59		     1		POP CX
+ 0114  5B		     1		POP BX
+ 0115  58		     1		POP AX
+					CURSOR 10,20
+ 0116  50		     1		PUSH AX
+ 0117  53		     1		PUSH BX
+ 0118  51		     1		PUSH CX
+ 0119  52		     1		PUSH DX
+ 011A  B4 02		     1		MOV AH,02
+ 011C  B7 00		     1		MOV BH,00
+ 011E  B6 0A		     1		MOV DH,10
+ 0120  B2 14		     1		MOV DL,20
+ 0122  CD 10		     1		INT 10H
+ 0124  5A		     1		POP DX
+ 0125  59		     1		POP CX
+ 0126  5B		     1		POP BX
+ 0127  58		     1		POP AX
+					DISPLAY message1
+ 0128  50		     1		PUSH AX
+ 0129  52		     1		PUSH DX
+ 012A  B4 09		     1		MOV AH,09
+ 012C  BA 0000 R	     1		MOV DX,OFFSET message1
+ 012F  CD 21		     1		INT 21H
+ 0131  5A		     1		POP DX
+ 0132  58		     1		POP AX
+					CURSOR 11,20
+ 0133  50		     1		PUSH AX
+ 0134  53		     1		PUSH BX
+ 0135  51		     1		PUSH CX
+ 0136  52		     1		PUSH DX
+ 0137  B4 02		     1		MOV AH,02
+ 0139  B7 00		     1		MOV BH,00
+ 013B  B6 0B		     1		MOV DH,11
+ 013D  B2 14		     1		MOV DL,20
+ 013F  CD 10		     1		INT 10H
+ 0141  5A		     1		POP DX
+ 0142  59		     1		POP CX
+ 0143  5B		     1		POP BX
+ 0144  58		     1		POP AX
+					DISPLAY message2
+ 0145  50		     1		PUSH AX
+ 0146  52		     1		PUSH DX
+ 0147  B4 09		     1		MOV AH,09
+ 0149  BA 0013 R	     1		MOV DX,OFFSET message2
+ 014C  CD 21		     1		INT 21H
+ 014E  5A		     1		POP DX
+ 014F  58		     1		POP AX
+					CURSOR 12,20
+ 0150  50		     1		PUSH AX
+ 0151  53		     1		PUSH BX
+ 0152  51		     1		PUSH CX
+ 0153  52		     1		PUSH DX
+ 0154  B4 02		     1		MOV AH,02
+ 0156  B7 00		     1		MOV BH,00
+ 0158  B6 0C		     1		MOV DH,12
+ 015A  B2 14		     1		MOV DL,20
+ 015C  CD 10		     1		INT 10H
+ 015E  5A		     1		POP DX
+ 015F  59		     1		POP CX
+ 0160  5B		     1		POP BX
+ 0161  58		     1		POP AX
+					DISPLAY message3
+ 0162  50		     1		PUSH AX
+ 0163  52		     1		PUSH DX
+ 0164  B4 09		     1		MOV AH,09
+ 0166  BA 002E R	     1		MOV DX,OFFSET message3
+ 0169  CD 21		     1		INT 21H
+ 016B  5A		     1		POP DX
+ 016C  58		     1		POP AX
+					CURSOR 13,20
+ 016D  50		     1		PUSH AX
+ 016E  53		     1		PUSH BX
+ 016F  51		     1		PUSH CX
+ 0170  52		     1		PUSH DX
+ 0171  B4 02		     1		MOV AH,02
+ 0173  B7 00		     1		MOV BH,00
+ 0175  B6 0D		     1		MOV DH,13
+ 0177  B2 14		     1		MOV DL,20
+ 0179  CD 10		     1		INT 10H
+ 017B  5A		     1		POP DX
+ 017C  59		     1		POP CX
+ 017D  5B		     1		POP BX
+ 017E  58		     1		POP AX
+					DISPLAY message4
+ 017F  50		     1		PUSH AX
+ 0180  52		     1		PUSH DX
+ 0181  B4 09		     1		MOV AH,09
+ 0183  BA 003A R	     1		MOV DX,OFFSET message4
+ 0186  CD 21		     1		INT 21H
+ 0188  5A		     1		POP DX
+ 0189  58		     1		POP AX
+					CURSOR 14,20
+ 018A  50		     1		PUSH AX
+ 018B  53		     1		PUSH BX
+ 018C  51		     1		PUSH CX
+ 018D  52		     1		PUSH DX
+ 018E  B4 02		     1		MOV AH,02
+ 0190  B7 00		     1		MOV BH,00
+ 0192  B6 0E		     1		MOV DH,14
+ 0194  B2 14		     1		MOV DL,20
+ 0196  CD 10		     1		INT 10H
+ 0198  5A		     1		POP DX
+ 0199  59		     1		POP CX
+ 019A  5B		     1		POP BX
+ 019B  58		     1		POP AX
+					DISPLAY message5
+ 019C  50		     1		PUSH AX
+ 019D  52		     1		PUSH DX
+ 019E  B4 09		     1		MOV AH,09
+ 01A0  BA 0047 R	     1		MOV DX,OFFSET message5
+ 01A3  CD 21		     1		INT 21H
+ 01A5  5A		     1		POP DX
+ 01A6  58		     1		POP AX
+					 ;检查是否有键被按下
+ 01A7				button:
+ 01A7  B4 01				mov ah,01
+ 01A9  CD 16				int 16h
+ 01AB  74 FA				jz button
+ 01AD  B4 00				mov ah,0
+ 01AF  CD 16				int 16h
+ 01B1  80 FC 1C				cmp ah,1ch
+ 01B4  74 0A				je startgame
+ 01B6  80 FC 01				cmp ah,01h
+ 01B9  75 03 E9 FF3F			je exit
+ 01BE  EB E7				jmp button
+ 01C0				startgame:
+				    CLEARSCR
+ 01C0  50		     1		PUSH AX
+ 01C1  53		     1		PUSH BX
+ 01C2  51		     1		PUSH CX
+ 01C3  52		     1		PUSH DX
+ 01C4  B8 0600		     1		MOV AX,0600H
+ 01C7  B7 07		     1		MOV BH,07
+ 01C9  B9 0000		     1		MOV CX,0
+ 01CC  BA 184F		     1		MOV DX,184FH
+ 01CF  CD 10		     1		INT 10H
+ 01D1  5A		     1		POP DX
+ 01D2  59		     1		POP CX
+ 01D3  5B		     1		POP BX
+ 01D4  58		     1		POP AX
+ 01D5  C3				ret
+ 01D6				howtoplay endp
+
+				;初始�?
+ 01D6				init proc
+ 01D6  B6 16			    mov dh,22;
+ 01D8  B2 28			    mov dl,40
+ 01DA  BF 0051 R		    mov di,offset people
+ 01DD  B7 00			    mov bh,00
+ 01DF  E8 003E			    call display1
+ 01E2  B6 04			    mov dh,04
+ 01E4  B2 00			    mov dl,00
+ 01E6  BF 006A R		    mov di,offset superman
+ 01E9  E8 0071			    call display2
+ 01EC  C3			    ret
+ 01ED				init endp
+
+ 01ED				showscore proc
+				   	CURSOR 0,33
+ 01ED  50		     1		PUSH AX
+ 01EE  53		     1		PUSH BX
+ 01EF  51		     1		PUSH CX
+ 01F0  52		     1		PUSH DX
+ 01F1  B4 02		     1		MOV AH,02
+ 01F3  B7 00		     1		MOV BH,00
+ 01F5  B6 00		     1		MOV DH,0
+ 01F7  B2 21		     1		MOV DL,33
+ 01F9  CD 10		     1		INT 10H
+ 01FB  5A		     1		POP DX
+ 01FC  59		     1		POP CX
+ 01FD  5B		     1		POP BX
+ 01FE  58		     1		POP AX
+ 01FF  B4 09			    mov ah,09
+ 0201  BA 0083 R		    mov dx,offset score
+ 0204  CD 21			    int 21h
+				    
+				    CURSOR 0,41 
+ 0206  50		     1		PUSH AX
+ 0207  53		     1		PUSH BX
+ 0208  51		     1		PUSH CX
+ 0209  52		     1		PUSH DX
+ 020A  B4 02		     1		MOV AH,02
+ 020C  B7 00		     1		MOV BH,00
+ 020E  B6 00		     1		MOV DH,0
+ 0210  B2 29		     1		MOV DL,41
+ 0212  CD 10		     1		INT 10H
+ 0214  5A		     1		POP DX
+ 0215  59		     1		POP CX
+ 0216  5B		     1		POP BX
+ 0217  58		     1		POP AX
+ 0218  B4 09			    mov ah,09
+ 021A  BA 008A R		    mov dx,offset score1
+ 021D  CD 21			    int 21h
+ 021F  C3				ret
+ 0220				showscore endp
+
+ 0220				display1 proc
+ 0220  50			      push ax
+ 0221  53			      push bx
+ 0222  51			      push cx
+ 0223  52			      push dx
+ 0224  57			      push di
+				      
+ 0225  B5 00			      mov ch,0
+ 0227  8A 0D			      mov cl,[di]
+ 0229  89 0E 0077 R		      mov num1,cx
+ 022D  88 36 0079 R		      mov row1,dh
+ 0231  88 16 007A R		      mov col1,dl
+ 0235  47			      inc di
+ 0236  89 3E 007B R		      mov add1,di
+				      
+ 023A				 next:
+ 023A  02 75 02			      add dh,[di+2]       
+ 023D  02 55 03			      add dl,[di+3]
+ 0240  B4 02			      mov ah,02
+ 0242  CD 10			      int 10h
+				      
+ 0244  51			      push cx
+ 0245  B4 09			      mov ah,09;画图
+ 0247  8A 05			      mov al,[di]
+ 0249  B9 0001			      mov cx,01
+ 024C  8A 5D 01			      mov bl,[di+1]
+ 024F  CD 10			      int 10h
+ 0251  59			      pop cx
+ 0252  83 C7 04			      add di,4
+ 0255  E2 E3			      loop next
+ 0257  5F			      pop di
+ 0258  5A			      pop dx
+ 0259  59			      pop cx
+ 025A  5B			      pop bx
+ 025B  58			      pop ax
+ 025C  C3			      ret
+ 025D				display1 endp
+
+ 025D				display2 proc
+ 025D  50			      push ax
+ 025E  53			      push bx
+ 025F  51			      push cx
+ 0260  52			      push dx
+ 0261  57			      push di
+				      
+ 0262  B5 00			      mov ch,0
+ 0264  8A 0D			      mov cl,[di]
+ 0266  89 0E 007D R		      mov num2,cx
+ 026A  88 36 007F R		      mov row2,dh
+ 026E  88 16 0080 R		      mov col2,dl
+ 0272  47			      inc di
+ 0273  89 3E 0081 R		      mov add2,di
+				      
+ 0277				 next:
+ 0277  02 75 02			      add dh,[di+2]
+ 027A  02 55 03			      add dl,[di+3]
+ 027D  B4 02			      mov ah,02
+ 027F  CD 10			      int 10h
+ 0281  51			      push cx
+ 0282  B4 09			      mov ah,09
+ 0284  8A 05			      mov al,[di]
+ 0286  B9 0001			      mov cx,01
+ 0289  8A 5D 01			      mov bl,[di+1]
+ 028C  CD 10			      int 10h
+ 028E  59			      pop cx
+ 028F  83 C7 04			      add di,4
+ 0292  E2 E3			      loop next
+ 0294  5F			      pop di
+ 0295  5A			      pop dx
+ 0296  59			      pop cx
+ 0297  5B			      pop bx
+ 0298  58			      pop ax
+ 0299  C3			      ret
+ 029A				display2 endp
+
+ 029A				move proc
+ 029A  50			    push ax
+ 029B  53			    push bx
+ 029C  51			    push cx
+ 029D  52			    push dx
+ 029E  57			    push di
+				       
+				    REMOVE num2,row2,col2,add2
+ 029F  50		     1		PUSH AX
+ 02A0  53		     1		PUSH BX
+ 02A1  51		     1		PUSH CX
+ 02A2  52		     1		PUSH DX
+ 02A3  57		     1		PUSH DI
+ 02A4  8B 0E 007D R	     1		MOV CX,num2
+ 02A8  8B 3E 0081 R	     1	    MOV DI,add2
+ 02AC  8A 36 007F R	     1	    MOV DH,row2
+ 02B0  8A 16 0080 R	     1	    MOV DL,col2
+ 02B4			     1	??0002:
+ 02B4  02 75 02		     1		ADD DH,[DI+2]
+ 02B7  02 55 03		     1	    ADD DL,[DI+3]
+ 02BA  B4 02		     1	    MOV AH,02
+ 02BC  CD 10		     1	    INT 10H
+ 02BE  8A 05		     1	    MOV AL,[DI]
+ 02C0  B3 00		     1	    MOV BL,0
+ 02C2  51		     1	    PUSH CX
+ 02C3  B4 09		     1	    MOV AH,09
+ 02C5  B9 0001		     1	    MOV CX,01
+ 02C8  CD 10		     1	    INT 10H
+ 02CA  59		     1	    POP CX
+ 02CB  83 C7 04		     1	    ADD DI,4
+ 02CE  E2 E4		     1	    LOOP ??0002
+ 02D0  5F		     1	    POP DI
+ 02D1  5A		     1	    POP DX
+ 02D2  59		     1	    POP CX
+ 02D3  5B		     1	    POP BX
+ 02D4  58		     1	    POP AX
+ 02D5  8A 16 0080 R		    mov dl,col2
+ 02D9  80 FA 4D			    cmp dl,77
+ 02DC  72 02			    jb loop1
+ 02DE  B2 FF			    mov dl,-1
+ 02E0				loop1:
+ 02E0  FE C2			    inc dl
+ 02E2  8A 36 007F R		    mov dh,row2
+ 02E6  8B 3E 0081 R		    mov di,add2
+ 02EA  8B 0E 007D R		    mov cx,num2
+ 02EE  88 16 0080 R		    mov col2,dl
+ 02F2				loop2:
+ 02F2  02 75 02				add dh,[di+2]
+ 02F5  02 55 03			    add dl,[di+3]
+ 02F8  B4 02			    mov ah,02
+ 02FA  B7 00			    mov bh,00
+ 02FC  CD 10			    int 10h
+				    
+ 02FE  51			    push cx
+ 02FF  B4 09			    mov ah,09
+ 0301  B7 00			    mov bh,00
+ 0303  8A 05			    mov al,[di]
+ 0305  B9 0001			    mov cx,01
+ 0308  8A 5D 01			    mov bl,[di+1]
+ 030B  CD 10			    int 10h
+ 030D  59			    pop cx
+ 030E  83 C7 04			    add di,04
+ 0311  E2 DF			    loop  loop2
+				    
+ 0313  5F			    pop di
+ 0314  5A			    pop dx
+ 0315  59			    pop cx
+ 0316  5B			    pop bx
+ 0317  58			    pop ax
+ 0318  C3			    ret
+ 0319				move endp
+
+
+ 0319				kill proc 
+ 0319  50				push ax
+ 031A  53				push bx
+ 031B  51				push cx
+ 031C  52				push dx
+ 031D  57				push di
+ 031E				loop1:
+ 031E  80 EE 01			    sub dh,01
+ 0321  B4 02			    mov ah,02
+ 0323  B7 00			    mov bh,00
+ 0325  CD 10			    int 10h
+ 0327  B4 09			    mov ah,09
+ 0329  B0 1E			    mov al,30;符号
+ 032B  B3 0E			    mov bl,14;颜色
+ 032D  B9 0001			    mov cx,01;重复次数
+ 0330  CD 10			    int 10h
+				    
+ 0332  E8 0016			    call delay
+				    
+ 0335  B4 09			    mov ah,09
+ 0337  B0 18			    mov al,18h
+ 0339  B3 00			    mov bl,00h
+ 033B  B9 0001			    mov cx,01
+ 033E  CD 10			    int 10h
+ 0340  80 FE 01			    cmp dh,1
+ 0343  75 D9			    jne loop1
+ 0345  5F			    pop di
+ 0346  5A			    pop dx
+ 0347  59			    pop cx
+ 0348  5B			    pop bx
+ 0349  58			    pop ax
+ 034A  C3			    ret
+ 034B				kill endp
+
+
+ 034B				delay proc
+ 034B  51				push cx
+ 034C  50				push ax
+ 034D  B9 40C2				mov cx,16578
+ 0350				wait1:
+ 0350  E4 61				in al,61h
+ 0352  24 10				and al,10h
+ 0354  38 E0				cmp al,ah
+ 0356  74 F8				je wait1
+ 0358  8A E0				mov ah,al
+ 035A  E2 F4				loop wait1
+ 035C  58				pop ax
+ 035D  59				pop cx
+ 035E  C3				ret
+ 035F				delay endp
+
+ 035F				judge proc      
+ 035F  50				push ax
+ 0360  53			    push bx
+ 0361  56			    push si
+ 0362  A0 007A R		    mov al,col1  
+ 0365  8A 1E 0080 R		    mov bl,col2
+ 0369  38 D8			    cmp al,bl    
+ 036B  74 0E			    je getscore
+ 036D  FE C3			    inc bl
+ 036F  38 C3			    cmp bl,al
+ 0371  74 08			    je getscore
+ 0373  FE C3			    inc bl
+ 0375  38 C3			    cmp bl,al
+ 0377  74 02			    je getscore    
+ 0379  EB 64			    jmp notkill
+				    
+ 037B				getscore:
+ 037B  80 06 008D R 01			add score2,1
+ 0380  2A E4			    sub ah,ah
+ 0382  A0 008D R		    mov al,score2
+ 0385  BE 008A R		    mov si,offset score1
+ 0388  E8 0058			    call b2asc_con
+				    
+				    CURSOR 0,41
+ 038B  50		     1		PUSH AX
+ 038C  53		     1		PUSH BX
+ 038D  51		     1		PUSH CX
+ 038E  52		     1		PUSH DX
+ 038F  B4 02		     1		MOV AH,02
+ 0391  B7 00		     1		MOV BH,00
+ 0393  B6 00		     1		MOV DH,0
+ 0395  B2 29		     1		MOV DL,41
+ 0397  CD 10		     1		INT 10H
+ 0399  5A		     1		POP DX
+ 039A  59		     1		POP CX
+ 039B  5B		     1		POP BX
+ 039C  58		     1		POP AX
+ 039D  B4 09			    mov ah,09
+ 039F  BA 008A R		    mov dx,offset score1
+ 03A2  CD 21			    int 21h
+				   	
+				   	REMOVE num2,row2,col2,add2
+ 03A4  50		     1		PUSH AX
+ 03A5  53		     1		PUSH BX
+ 03A6  51		     1		PUSH CX
+ 03A7  52		     1		PUSH DX
+ 03A8  57		     1		PUSH DI
+ 03A9  8B 0E 007D R	     1		MOV CX,num2
+ 03AD  8B 3E 0081 R	     1	    MOV DI,add2
+ 03B1  8A 36 007F R	     1	    MOV DH,row2
+ 03B5  8A 16 0080 R	     1	    MOV DL,col2
+ 03B9			     1	??0003:
+ 03B9  02 75 02		     1		ADD DH,[DI+2]
+ 03BC  02 55 03		     1	    ADD DL,[DI+3]
+ 03BF  B4 02		     1	    MOV AH,02
+ 03C1  CD 10		     1	    INT 10H
+ 03C3  8A 05		     1	    MOV AL,[DI]
+ 03C5  B3 00		     1	    MOV BL,0
+ 03C7  51		     1	    PUSH CX
+ 03C8  B4 09		     1	    MOV AH,09
+ 03CA  B9 0001		     1	    MOV CX,01
+ 03CD  CD 10		     1	    INT 10H
+ 03CF  59		     1	    POP CX
+ 03D0  83 C7 04		     1	    ADD DI,4
+ 03D3  E2 E4		     1	    LOOP ??0003
+ 03D5  5F		     1	    POP DI
+ 03D6  5A		     1	    POP DX
+ 03D7  59		     1	    POP CX
+ 03D8  5B		     1	    POP BX
+ 03D9  58		     1	    POP AX
+ 03DA  C6 06 0080 R 4D		    mov col2,77
+				    
+ 03DF				notkill:
+ 03DF  5E			    pop si
+ 03E0  5B			    pop bx
+ 03E1  58			    pop ax
+ 03E2  C3			    ret
+ 03E3				judge endp
+
+ 03E3				b2asc_con proc
+ 03E3  9C			  	pushf
+ 03E4  53			  	push bx
+ 03E5  52			  	push dx
+ 03E6  BB 000A			  	mov bx,10
+ 03E9  83 C6 01			  	add si,1
+ 03EC				loop1:
+ 03EC  2B D2				sub dx,dx
+ 03EE  F7 F3			    div bx
+ 03F0  80 CA 30			    or dl,30h
+ 03F3  88 14			    mov [si],dl
+ 03F5  4E			    dec si
+ 03F6  83 F8 00			    cmp ax,0
+ 03F9  77 F1			    ja loop1
+ 03FB  5A			    pop dx
+ 03FC  5B			    pop bx
+ 03FD  9D			    popf
+ 03FE  C3			    ret
+ 03FF				b2asc_con endp
+
+ 03FF				CODES ENDS
+				    END START
+
+Microsoft (R) Macro Assembler Version 6.11		    11/22/16 17:16:30
+tempfile.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+CLEARSCR . . . . . . . . . . . .	Proc
+CURSOR . . . . . . . . . . . . .	Proc
+DISPLAY  . . . . . . . . . . . .	Proc
+REMOVE . . . . . . . . . . . . .	Proc
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+CODES  . . . . . . . . . . . . .	16 Bit	 03FF	  Para	  Private 
+DATAS  . . . . . . . . . . . . .	16 Bit	 008E	  Para	  Private 
+STACKS . . . . . . . . . . . . .	16 Bit	 0000	  Para	  Private 
+
+
+Procedures,  parameters and locals:
+
+                N a m e                 Type     Value    Attr
+
+b2asc_con  . . . . . . . . . . .	P Near	 03E3	  CODES	Length= 001C Public
+  loop1  . . . . . . . . . . . .	L Near	 03EC	  CODES	
+delay  . . . . . . . . . . . . .	P Near	 034B	  CODES	Length= 0014 Public
+  wait1  . . . . . . . . . . . .	L Near	 0350	  CODES	
+display1 . . . . . . . . . . . .	P Near	 0220	  CODES	Length= 003D Public
+  next . . . . . . . . . . . . .	L Near	 023A	  CODES	
+display2 . . . . . . . . . . . .	P Near	 025D	  CODES	Length= 003D Public
+  next . . . . . . . . . . . . .	L Near	 0277	  CODES	
+howtoplay  . . . . . . . . . . .	P Near	 0101	  CODES	Length= 00D5 Public
+  button . . . . . . . . . . . .	L Near	 01A7	  CODES	
+  startgame  . . . . . . . . . .	L Near	 01C0	  CODES	
+init . . . . . . . . . . . . . .	P Near	 01D6	  CODES	Length= 0017 Public
+judge  . . . . . . . . . . . . .	P Near	 035F	  CODES	Length= 0084 Public
+  getscore . . . . . . . . . . .	L Near	 037B	  CODES	
+  ??0003 . . . . . . . . . . . .	L Near	 03B9	  CODES	
+  notkill  . . . . . . . . . . .	L Near	 03DF	  CODES	
+kill . . . . . . . . . . . . . .	P Near	 0319	  CODES	Length= 0032 Public
+  loop1  . . . . . . . . . . . .	L Near	 031E	  CODES	
+move . . . . . . . . . . . . . .	P Near	 029A	  CODES	Length= 007F Public
+  ??0002 . . . . . . . . . . . .	L Near	 02B4	  CODES	
+  loop1  . . . . . . . . . . . .	L Near	 02E0	  CODES	
+  loop2  . . . . . . . . . . . .	L Near	 02F2	  CODES	
+showscore  . . . . . . . . . . .	P Near	 01ED	  CODES	Length= 0033 Public
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+??0000 . . . . . . . . . . . . .	L Near	 005E	  CODES	
+??0001 . . . . . . . . . . . . .	L Near	 00B5	  CODES	
+START  . . . . . . . . . . . . .	L Near	 0000	  CODES	
+add1 . . . . . . . . . . . . . .	Word	 007B	  DATAS	
+add2 . . . . . . . . . . . . . .	Word	 0081	  DATAS	
+again  . . . . . . . . . . . . .	L Near	 0014	  CODES	
+col1 . . . . . . . . . . . . . .	Byte	 007A	  DATAS	
+col2 . . . . . . . . . . . . . .	Byte	 0080	  DATAS	
+exit . . . . . . . . . . . . . .	L Near	 00FD	  CODES	
+left . . . . . . . . . . . . . .	L Near	 0040	  CODES	
+message1 . . . . . . . . . . . .	Byte	 0000	  DATAS	
+message2 . . . . . . . . . . . .	Byte	 0013	  DATAS	
+message3 . . . . . . . . . . . .	Byte	 002E	  DATAS	
+message4 . . . . . . . . . . . .	Byte	 003A	  DATAS	
+message5 . . . . . . . . . . . .	Byte	 0047	  DATAS	
+num1 . . . . . . . . . . . . . .	Word	 0077	  DATAS	
+num2 . . . . . . . . . . . . . .	Word	 007D	  DATAS	
+people . . . . . . . . . . . . .	Byte	 0051	  DATAS	
+right  . . . . . . . . . . . . .	L Near	 0094	  CODES	
+row1 . . . . . . . . . . . . . .	Byte	 0079	  DATAS	
+row2 . . . . . . . . . . . . . .	Byte	 007F	  DATAS	
+score1 . . . . . . . . . . . . .	Byte	 008A	  DATAS	
+score2 . . . . . . . . . . . . .	Byte	 008D	  DATAS	
+score  . . . . . . . . . . . . .	Byte	 0083	  DATAS	
+shoot  . . . . . . . . . . . . .	L Near	 00EC	  CODES	
+superman . . . . . . . . . . . .	Byte	 006A	  DATAS	
+
+	   0 Warnings
+	   0 Errors
