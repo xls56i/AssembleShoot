@@ -1,3 +1,4 @@
+EXTRN SUBPROG1:FAR
 CLEARSCR MACRO
 	PUSH AX
 	PUSH BX
@@ -72,7 +73,7 @@ LOOP1:
 	ENDM
 	
 DATAS SEGMENT
-    ;此处输入数据段代码 
+    ;姝ゅ杈撳叆鏁版嵁娈典唬鐮?
     ;Menu
     message1 db 'Shoot the SuperMan$'
     message2 db 'Use left and right to move$'
@@ -105,14 +106,14 @@ DATAS SEGMENT
      
      
      score db 'Score:$'
-     score1 db 2 dup('0'),'$';分数的ASCII码，用于显示
-     score2 db 0;分数的二进制码，用于运算
+     score1 db 2 dup('0'),'$';鍒嗘暟鐨凙SCII鐮侊紝鐢ㄤ簬鏄剧ず
+     score2 db 0;鍒嗘暟鐨勪簩杩涘埗鐮侊紝鐢ㄤ簬杩愮畻
      
 
 DATAS ENDS
 
 STACKS SEGMENT
-    ;此处输入堆栈段代码
+    ;姝ゅ杈撳叆鍫嗘爤娈典唬鐮?
 STACKS ENDS
 
 CODES SEGMENT
@@ -121,8 +122,8 @@ CODES SEGMENT
 START:
     MOV AX,DATAS
     MOV DS,AX
-    ;此处输入代码段代码
-	mov ah,00 ;选择80*25文本模式
+    ;姝ゅ杈撳叆浠ｇ爜娈典唬鐮?
+	mov ah,00 ;閫夋嫨80*25鏂囨湰妯″紡
     mov al,03
     int 10h
     call howtoplay
@@ -148,7 +149,7 @@ again:
     jmp again
     
 left:
-    mov dl,col1;边界检测
+    mov dl,col1;杈圭晫妫€娴?
     cmp dl,01
     jna again
     
@@ -176,7 +177,7 @@ shoot:
     mov dh,row1    
     mov dl,col1
     call kill
-    call judge
+    ;call judge
     jmp again
 exit:
     MOV AH,4CH
@@ -195,7 +196,7 @@ howtoplay proc
 	DISPLAY message4
 	CURSOR 14,20
 	DISPLAY message5
-	 ;检查是否有键被按下
+	 ;妫€鏌ユ槸鍚︽湁閿鎸変笅
 button:
 	mov ah,01
 	int 16h
@@ -212,7 +213,7 @@ startgame:
 	ret
 howtoplay endp
 
-;初始化
+;鍒濆鍖?
 init proc
     mov dh,22;
     mov dl,40
@@ -261,7 +262,7 @@ display1 proc
       int 10h
       
       push cx
-      mov ah,09;画图
+      mov ah,09;鐢诲浘
       mov al,[di]
       mov cx,01
       mov bl,[di+1]
@@ -366,15 +367,17 @@ kill proc
 	push dx
 	push di
 loop1:
+	call move
     sub dh,01
     mov ah,02
     mov bh,00
     int 10h
     mov ah,09
-    mov al,30;符号
-    mov bl,14;颜色
-    mov cx,01;重复次数
+    mov al,30;绗﹀彿
+    mov bl,14;棰滆壊
+    mov cx,01;閲嶅娆℃暟
     int 10h
+    
     
     call delay
     
@@ -383,8 +386,20 @@ loop1:
     mov bl,00h
     mov cx,01
     int 10h
+    
+    cmp dh,4
+    je loop2
+    
     cmp dh,1
     jne loop1
+    jmp loop3
+    
+loop2:
+	call judge
+	cmp col2,77
+	je loop3	
+    jmp loop1
+loop3:  
     pop di
     pop dx
     pop cx
@@ -431,7 +446,7 @@ getscore:
     sub ah,ah
     mov al,score2
     mov si,offset score1
-    call b2asc_con
+    call b2as
     
     CURSOR 0,41
     mov ah,09
@@ -439,7 +454,8 @@ getscore:
     int 21h
    	
    	REMOVE num2,row2,col2,add2
-    mov col2,77
+    mov col2,77 
+   
     
 notkill:
     pop si
@@ -448,8 +464,8 @@ notkill:
     ret
 judge endp
 
-b2asc_con proc
-  	pushf
+b2as proc
+	pushf
   	push bx
   	push dx
   	mov bx,10
@@ -466,7 +482,8 @@ loop1:
     pop bx
     popf
     ret
-b2asc_con endp
+b2as endp
 
 CODES ENDS
     END START
+
