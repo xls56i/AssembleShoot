@@ -73,7 +73,7 @@ LOOP1:
 	ENDM
 	
 DATAS SEGMENT
-    ;姝ゅ杈撳叆鏁版嵁娈典唬鐮?
+    ;此处输入数据段代码 
     ;Menu
     message1 db 'Shoot the SuperMan$'
     message2 db 'Use left and right to move$'
@@ -106,14 +106,14 @@ DATAS SEGMENT
      
      
      score db 'Score:$'
-     score1 db 2 dup('0'),'$';鍒嗘暟鐨凙SCII鐮侊紝鐢ㄤ簬鏄剧ず
-     score2 db 0;鍒嗘暟鐨勪簩杩涘埗鐮侊紝鐢ㄤ簬杩愮畻
+     score1 db 2 dup('0'),'$';分数的ASCII码，用于显示
+     score2 db 0;分数的二进制码，用于运算
      
 
 DATAS ENDS
 
 STACKS SEGMENT
-    ;姝ゅ杈撳叆鍫嗘爤娈典唬鐮?
+	;此处输入堆栈段代码
 STACKS ENDS
 
 CODES SEGMENT
@@ -122,8 +122,8 @@ CODES SEGMENT
 START:
     MOV AX,DATAS
     MOV DS,AX
-    ;姝ゅ杈撳叆浠ｇ爜娈典唬鐮?
-	mov ah,00 ;閫夋嫨80*25鏂囨湰妯″紡
+   	;此处输入代码段代码
+	mov ah,00 ;选择80*25文本模式
     mov al,03
     int 10h
     call howtoplay
@@ -149,7 +149,7 @@ again:
     jmp again
     
 left:
-    mov dl,col1;杈圭晫妫€娴?
+    mov dl,col1;边界检测
     cmp dl,01
     jna again
     
@@ -196,7 +196,7 @@ howtoplay proc
 	DISPLAY message4
 	CURSOR 14,20
 	DISPLAY message5
-	 ;妫€鏌ユ槸鍚︽湁閿鎸変笅
+	;检查是否有键被按下
 button:
 	mov ah,01
 	int 16h
@@ -213,7 +213,7 @@ startgame:
 	ret
 howtoplay endp
 
-;鍒濆鍖?
+;初始化
 init proc
     mov dh,22;
     mov dl,40
@@ -262,7 +262,7 @@ display1 proc
       int 10h
       
       push cx
-      mov ah,09;鐢诲浘
+      mov ah,09;画图
       mov al,[di]
       mov cx,01
       mov bl,[di+1]
@@ -373,9 +373,9 @@ loop1:
     mov bh,00
     int 10h
     mov ah,09
-    mov al,30;绗﹀彿
-    mov bl,14;棰滆壊
-    mov cx,01;閲嶅娆℃暟
+    mov al,30;符号
+    mov bl,14;颜色
+    mov cx,01;重复次数
     int 10h
     
     
